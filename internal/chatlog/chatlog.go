@@ -1,8 +1,9 @@
 // Package chatlog gives near-real-time award detection by tailing WoW's
-// chat log file (enabled client-side via `/console chatLogging 1`). Every
-// SendChatMessage the addon sends lands in this file immediately, unlike
-// SavedVariables which only flush on logout/reload — this is the only piece
-// that can be live.
+// chat log file (enabled client-side by running `/run LoggingChat(1)` — this
+// is a Lua API toggle, not a saved CVar, so it has to be re-run every
+// session). Every SendChatMessage the addon sends lands in this file
+// immediately, unlike SavedVariables which only flush on logout/reload —
+// this is the only piece that can be live.
 //
 // We deliberately don't try to parse the full chat-log line format (its
 // exact shape has varied across client versions and isn't worth pinning
