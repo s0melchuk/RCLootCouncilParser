@@ -1,0 +1,5 @@
+.idea/
+*.exe
+/rclootparser
+config.json
+state.json
