@@ -50,16 +50,16 @@ func TestParseFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	awards, err := ParseFile(path)
+	parsed, err := ParseFile(path)
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
 	}
-	if len(awards) != 2 {
-		t.Fatalf("expected 2 awards, got %d: %+v", len(awards), awards)
+	if len(parsed.Awards) != 2 {
+		t.Fatalf("expected 2 awards, got %d: %+v", len(parsed.Awards), parsed.Awards)
 	}
 
 	byWinner := map[string]bool{}
-	for _, a := range awards {
+	for _, a := range parsed.Awards {
 		byWinner[a.Winner] = true
 		if a.ItemID == 0 {
 			t.Errorf("award for %s: expected a decoded item ID, got 0", a.Winner)
@@ -70,8 +70,25 @@ func TestParseFile(t *testing.T) {
 		if a.AwardedAt == "" {
 			t.Errorf("award for %s: AwardedAt not set", a.Winner)
 		}
+		if a.Difficulty != "Normal" {
+			t.Errorf("award for %s: Difficulty = %q, want Normal", a.Winner, a.Difficulty)
+		}
+		if a.Raid != "Molten Core" {
+			t.Errorf("award for %s: Raid = %q, want Molten Core", a.Winner, a.Raid)
+		}
 	}
 	if !byWinner["Thrallpull"] || !byWinner["Healbot"] {
-		t.Fatalf("expected awards for Thrallpull and Healbot, got %+v", awards)
+		t.Fatalf("expected awards for Thrallpull and Healbot, got %+v", parsed.Awards)
+	}
+
+	players := map[string]string{}
+	for _, p := range parsed.Players {
+		players[p.Name] = p.Class
+	}
+	if players["Thrallpull"] != "WARRIOR" {
+		t.Errorf("Thrallpull class = %q, want WARRIOR", players["Thrallpull"])
+	}
+	if players["Healbot"] != "PRIEST" {
+		t.Errorf("Healbot class = %q, want PRIEST", players["Healbot"])
 	}
 }

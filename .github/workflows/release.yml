@@ -1,12 +1,25 @@
 name: Release
 
-# Triggered by pushing a version tag, e.g.:
-#   git tag v0.1.0 && git push origin v0.1.0
-# Builds a binary for each target platform and attaches them to a new
-# GitHub Release. Uses only the built-in GITHUB_TOKEN — no secrets to set up.
+# Two ways to cut a release:
+#   1. Automatic: every push to main (i.e. every merge, since main is
+#      protected and requires CI to pass first) computes the next patch
+#      version and publishes a release for it.
+#   2. Manual: push a version tag yourself, e.g.
+#        git tag v1.0.0 && git push origin v1.0.0
+#      to cut a specific version out of band (e.g. a deliberate major/minor
+#      bump) — this always wins over the auto-incremented patch version.
+#
+# Note: step 1 does NOT `git tag`+`git push` a tag itself — a tag pushed by
+# the default GITHUB_TOKEN would not trigger this workflow's own tag
+# listener anyway (GitHub blocks that to prevent infinite workflow loops).
+# Instead it computes the version and hands it straight to
+# softprops/action-gh-release's tag_name, which creates the tag as part of
+# publishing the release. Uses only the built-in GITHUB_TOKEN — no secrets
+# to set up.
 
 on:
   push:
+    branches: [main]
     tags:
       - "v*.*.*"
 
@@ -14,7 +27,36 @@ permissions:
   contents: write
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.compute.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compute release tag
+        id: compute
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest=$(git tag --list 'v*.*.*' | sort -V | tail -n1)
+          if [ -z "$latest" ]; then
+            next="v0.1.0"
+          else
+            version="${latest#v}"
+            major="${version%%.*}"
+            rest="${version#*.}"
+            minor="${rest%%.*}"
+            patch="${rest#*.}"
+            next="v${major}.${minor}.$((patch + 1))"
+          fi
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: version
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -48,7 +90,7 @@ jobs:
           path: dist/*
 
   release:
-    needs: build
+    needs: [version, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -57,5 +99,6 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.version.outputs.tag }}
           files: dist/*
           generate_release_notes: true

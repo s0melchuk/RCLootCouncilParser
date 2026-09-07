@@ -1,4 +1,5 @@
-// Package apiclient posts awards to the RCLootCouncilApi ingest endpoint.
+// Package apiclient posts awards and roster entries to the RCLootCouncilApi
+// ingest endpoints.
 package apiclient
 
 import (
@@ -27,7 +28,7 @@ func New(baseURL, apiKey string) *Client {
 	}
 }
 
-type bulkRequest struct {
+type bulkAwardsRequest struct {
 	Records []model.Award `json:"records"`
 }
 
@@ -38,12 +39,28 @@ func (c *Client) PostAwards(awards []model.Award) error {
 	if len(awards) == 0 {
 		return nil
 	}
-	body, err := json.Marshal(bulkRequest{Records: awards})
+	return c.post("/api/loot", bulkAwardsRequest{Records: awards})
+}
+
+type bulkPlayersRequest struct {
+	Players []model.Player `json:"players"`
+}
+
+// PostPlayers upserts a batch of roster entries via POST /api/players.
+func (c *Client) PostPlayers(players []model.Player) error {
+	if len(players) == 0 {
+		return nil
+	}
+	return c.post("/api/players", bulkPlayersRequest{Players: players})
+}
+
+func (c *Client) post(path string, payload interface{}) error {
+	body, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("marshal awards: %w", err)
+		return fmt.Errorf("marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.BaseURL+"/api/loot", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.BaseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
@@ -52,12 +69,12 @@ func (c *Client) PostAwards(awards []model.Award) error {
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf("request to %s failed: %w", path, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("API returned %s", resp.Status)
+		return fmt.Errorf("API returned %s for %s", resp.Status, path)
 	}
 	return nil
 }

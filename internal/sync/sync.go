@@ -16,18 +16,28 @@ import (
 	"github.com/s0melchuk/RCLootCouncilParser/internal/state"
 )
 
-// ReconcileSavedVariables parses the SavedVariables file (if configured) and
-// pushes any awards not already recorded in st. Safe to call repeatedly —
-// dedupe is keyed by award content, not file position.
+// ReconcileSavedVariables parses the SavedVariables file (if configured),
+// pushes any awards not already recorded in st, and upserts the roster
+// (name + class) for everyone it saw. Safe to call repeatedly — award dedupe
+// is keyed by content, not file position, and roster upserts are idempotent.
 func ReconcileSavedVariables(cfg *config.Config, client *apiclient.Client, st *state.State) error {
 	if cfg.SavedVariablesPath == "" {
 		return nil
 	}
-	awards, err := savedvars.ParseFile(cfg.SavedVariablesPath)
+	parsed, err := savedvars.ParseFile(cfg.SavedVariablesPath)
 	if err != nil {
 		return fmt.Errorf("parse saved variables: %w", err)
 	}
-	return pushNew(client, st, awards)
+	if err := pushNew(client, st, parsed.Awards); err != nil {
+		return err
+	}
+	if len(parsed.Players) > 0 {
+		if err := client.PostPlayers(parsed.Players); err != nil {
+			return fmt.Errorf("sync roster: %w", err)
+		}
+		log.Printf("synced roster (%d player(s) with a known class)", len(parsed.Players))
+	}
+	return nil
 }
 
 func pushNew(client *apiclient.Client, st *state.State, awards []model.Award) error {

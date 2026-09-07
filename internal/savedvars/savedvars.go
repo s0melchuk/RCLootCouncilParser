@@ -12,9 +12,17 @@
 //	}
 //
 // (see RCLootCouncil's ml_core.lua:TrackAndLogLoot, which builds exactly
-// these fields). This file is only flushed to disk on logout or /reload —
-// there is no way around that from outside the game client — so treat reads
-// of it as a periodic reconciliation pass, not a live feed.
+// these fields: lootWon, date, time, instance, boss, votes, response,
+// responseID, class, isAwardReason — note there is no equip-slot field here.
+// `equipLoc` only exists on the transient in-session loot table used while
+// the loot window is open; it is never written to history. So Award.Slot
+// can't be populated from this source — it would need a separate itemID ->
+// equip-slot lookup table, which is a deliberate follow-up, not guessed
+// here.)
+//
+// This file is only flushed to disk on logout or /reload — there is no way
+// around that from outside the game client — so treat reads of it as a
+// periodic reconciliation pass, not a live feed.
 package savedvars
 
 import (
@@ -30,24 +38,32 @@ import (
 
 const savedVariableName = "RCLootCouncilLootDB"
 
-// ParseFile reads and decodes the given RCLootCouncilLootDB.lua path into a
-// flat list of awards, across every faction-realm and player bucket it
-// contains.
-func ParseFile(path string) ([]model.Award, error) {
+// Parsed is the result of parsing one RCLootCouncilLootDB.lua file.
+type Parsed struct {
+	Awards []model.Award
+	// Players is deduped by name, built from the "class" field each history
+	// entry carries for its winner. Spec isn't available from this data.
+	Players []model.Player
+}
+
+// ParseFile reads and decodes the given RCLootCouncilLootDB.lua path across
+// every faction-realm and player bucket it contains.
+func ParseFile(path string) (Parsed, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+		return Parsed{}, fmt.Errorf("read %s: %w", path, err)
 	}
 	root, err := luatable.ParseAssignment(string(data), savedVariableName)
 	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return Parsed{}, fmt.Errorf("parse %s: %w", path, err)
 	}
 	rootTable, ok := root.(luatable.Table)
 	if !ok {
-		return nil, fmt.Errorf("%s: %s was not a table", path, savedVariableName)
+		return Parsed{}, fmt.Errorf("%s: %s was not a table", path, savedVariableName)
 	}
 
-	var awards []model.Award
+	var result Parsed
+	seenPlayers := map[string]bool{}
 	for _, factionRealmVal := range rootTable {
 		factionRealm, ok := factionRealmVal.(luatable.Table)
 		if !ok {
@@ -67,20 +83,25 @@ func ParseFile(path string) ([]model.Award, error) {
 				if !ok {
 					continue
 				}
-				award, ok := toAward(playerName, entry)
-				if ok {
-					awards = append(awards, award)
+				award, class, ok := toAward(playerName, entry)
+				if !ok {
+					continue
+				}
+				result.Awards = append(result.Awards, award)
+				if class != "" && !seenPlayers[playerName] {
+					seenPlayers[playerName] = true
+					result.Players = append(result.Players, model.Player{Name: playerName, Class: class})
 				}
 			}
 		}
 	}
-	return awards, nil
+	return result, nil
 }
 
-func toAward(player string, entry luatable.Table) (model.Award, bool) {
+func toAward(player string, entry luatable.Table) (award model.Award, class string, ok bool) {
 	lootWon, _ := entry.GetString("lootWon")
 	if lootWon == "" {
-		return model.Award{}, false
+		return model.Award{}, "", false
 	}
 	decoded, hasLink := itemlink.Find(lootWon)
 	itemName := lootWon
@@ -96,20 +117,37 @@ func toAward(player string, entry luatable.Table) (model.Award, bool) {
 
 	boss, _ := entry.GetString("boss")
 	instance, _ := entry.GetString("instance")
+	raid, difficulty := splitInstance(instance)
 	response, _ := entry.GetString("response")
 	votes, _ := entry.GetNumber("votes")
+	class, _ = entry.GetString("class")
 
 	return model.Award{
-		AwardedAt: awardedAt,
-		Raid:      instance,
-		Boss:      boss,
-		ItemID:    itemID,
-		ItemName:  itemName,
-		Winner:    player,
-		Response:  response,
-		Votes:     votes,
-		RawSource: lootWon,
-	}, true
+		AwardedAt:  awardedAt,
+		Raid:       raid,
+		Boss:       boss,
+		ItemID:     itemID,
+		ItemName:   itemName,
+		Winner:     player,
+		Response:   response,
+		Difficulty: difficulty,
+		Votes:      votes,
+		RawSource:  lootWon,
+	}, class, true
+}
+
+// splitInstance undoes RCLootCouncil's own
+// `instance = instanceName.."-"..difficultyName` concatenation
+// (ml_core.lua:TrackAndLogLoot) to recover raid name and difficulty
+// separately. Splits on the *last* hyphen, since difficulty names (e.g.
+// "10 Player Normal") don't contain one, while a small number of raid names
+// theoretically could.
+func splitInstance(instance string) (raid, difficulty string) {
+	idx := strings.LastIndex(instance, "-")
+	if idx < 0 {
+		return instance, ""
+	}
+	return instance[:idx], instance[idx+1:]
 }
 
 // combineDateTime turns RCLootCouncil's "DD/MM/YY" + "HH:MM:SS" history
