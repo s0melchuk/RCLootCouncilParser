@@ -98,11 +98,22 @@ in daily use.
 
 ## Releases
 
-Pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`) triggers
-[`.github/workflows/release.yml`](.github/workflows/release.yml), which
-cross-compiles `rclootparser` for Windows (amd64) and macOS (amd64 + Apple
-Silicon) and attaches the binaries to a new GitHub Release — no Go
-installation needed on the receiving end.
+A merge to `main` (which, since `main` is branch-protected, means it's
+already passed CI) that touches actual code (`*.go`, `go.mod`, `go.sum`)
+automatically publishes a new GitHub Release:
+[`.github/workflows/release.yml`](.github/workflows/release.yml)
+auto-increments the patch version from the latest `vX.Y.Z` tag, cross-compiles
+`rclootparser` for Windows (amd64) and macOS (amd64 + Apple Silicon), and
+attaches the binaries — no Go installation needed on the receiving end. A
+merge that only touches docs/config/workflow files is skipped, so trivial
+changes don't spam the Releases page.
+
+To cut a specific version yourself instead (e.g. a deliberate major/minor
+bump), push a tag directly — it takes priority over the auto-increment:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
 
 ## Contributing
 
