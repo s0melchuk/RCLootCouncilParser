@@ -8,8 +8,13 @@ import (
 )
 
 type Config struct {
-	// SavedVariablesPath points directly at RCLootCouncilLootDB.lua, e.g.
-	// "C:/Program Files (x86)/World of Warcraft/_classic_/WTF/Account/YOURACCOUNT/SavedVariables/RCLootCouncilLootDB.lua"
+	// SavedVariablesPath points at the addon's SavedVariables file. WoW
+	// writes ALL of an addon's declared SavedVariables into one file named
+	// after the addon's folder — RCLootCouncilLootDB is not its own file,
+	// it's a second top-level assignment inside RCLootCouncil.lua (verified
+	// against a real client: the file contains both `RCLootCouncilDB = {...}`
+	// and, further down, `RCLootCouncilLootDB = {...}`). So this should be:
+	// "C:/Program Files (x86)/World of Warcraft/_classic_/WTF/Account/YOURACCOUNT/SavedVariables/RCLootCouncil.lua"
 	SavedVariablesPath string `json:"saved_variables_path"`
 
 	// ChatLogPath points at the WoW chat log file to tail — typically
@@ -68,7 +73,7 @@ func Load(path string) (*Config, error) {
 
 // Example is written out by `rclootparser init` as a starting point.
 const Example = `{
-  "saved_variables_path": "C:/Program Files (x86)/World of Warcraft/_classic_/WTF/Account/YOURACCOUNT/SavedVariables/RCLootCouncilLootDB.lua",
+  "saved_variables_path": "C:/Program Files (x86)/World of Warcraft/_classic_/WTF/Account/YOURACCOUNT/SavedVariables/RCLootCouncil.lua",
   "chat_log_path": "C:/Program Files (x86)/World of Warcraft/_classic_/Logs/WoWChatLog.txt",
   "api_base_url": "https://rclootcouncil-api.pages.dev",
   "api_key": "REPLACE_WITH_YOUR_INGEST_API_KEY",
