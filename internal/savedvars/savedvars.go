@@ -1,6 +1,17 @@
 // Package savedvars reads RCLootCouncil's own persisted loot history out of
-// the addon's SavedVariables file, rather than scraping chat text. The addon
-// writes it as:
+// the addon's SavedVariables file, rather than scraping chat text.
+//
+// Note: WoW writes every SavedVariable an addon declares into ONE file named
+// after the addon's folder — WTF/Account/<ACCOUNT>/SavedVariables/RCLootCouncil.lua
+// — as multiple top-level assignments. RCLootCouncilLootDB is not its own
+// file; it's a second `RCLootCouncilLootDB = { ... }` assignment inside that
+// same RCLootCouncil.lua, appearing after the much larger `RCLootCouncilDB`
+// (addon settings/profile) assignment. This has been confirmed against a
+// real client. Point ParseFile at RCLootCouncil.lua — luatable.ParseAssignment
+// finds the right top-level variable by name regardless of what else is in
+// the file.
+//
+// The addon writes the history table as:
 //
 //	RCLootCouncilLootDB = {
 //	    ["Faction - Realm"] = {

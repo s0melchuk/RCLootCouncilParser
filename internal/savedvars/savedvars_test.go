@@ -7,8 +7,24 @@ import (
 )
 
 // sample mirrors the exact shape RCLootCouncil's AceDB-3.0 factionrealm
-// history table + ml_core.lua's TrackAndLogLoot fields produce.
+// history table + ml_core.lua's TrackAndLogLoot fields produce, AND the fact
+// that RCLootCouncilLootDB is not its own file — WoW writes it as a second
+// top-level assignment inside RCLootCouncil.lua, after the (usually much
+// larger) RCLootCouncilDB settings/profile table. This shape — an unrelated,
+// arbitrarily nested table appearing first — is exactly what a real client
+// produces, confirmed against an actual RCLootCouncil.lua.
 const sample = `
+RCLootCouncilDB = {
+	["profileKeys"] = {
+		["Somechar - SomeRealm"] = "Default",
+	},
+	["global"] = {
+		["nested"] = {
+			["deeper"] = { 1, 2, 3, true, false, nil },
+			["aFloat"] = -12.5,
+		},
+	},
+}
 RCLootCouncilLootDB = {
 	["Alliance - TestRealm"] = {
 		["Thrallpull"] = {
@@ -45,7 +61,7 @@ RCLootCouncilLootDB = {
 
 func TestParseFile(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "RCLootCouncilLootDB.lua")
+	path := filepath.Join(dir, "RCLootCouncil.lua")
 	if err := os.WriteFile(path, []byte(sample), 0o644); err != nil {
 		t.Fatal(err)
 	}

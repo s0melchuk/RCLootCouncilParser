@@ -20,7 +20,7 @@ What you expected to happen instead.
 - WoW client version / expansion:
 
 **Sample data (if relevant)**
-A snippet of the offending `RCLootCouncilLootDB.lua` entry or chat log line
+A snippet of the offending `RCLootCouncilLootDB` entry (from `RCLootCouncil.lua`) or chat log line
 helps a lot — redact player/guild names if you'd rather not share them
 publicly.
 

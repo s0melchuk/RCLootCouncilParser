@@ -17,7 +17,7 @@ combines two sources:
 
 | Source | What it gives us | When it updates |
 |---|---|---|
-| **SavedVariables** (`RCLootCouncilLootDB.lua`) | Structured fields: item, boss, instance, votes, response — no text parsing | Only on a *natural* logout/reload (end of raid, zoning, etc.) |
+| **SavedVariables** (`RCLootCouncilLootDB`, inside `RCLootCouncil.lua`) | Structured fields: item, boss, instance, votes, response — no text parsing | Only on a *natural* logout/reload (end of raid, zoning, etc.) |
 | **Chat log** (`WoWChatLog.txt`) | The award-announcement chat line, parsed via regex | Live, the instant the message is sent — but requires `/run LoggingChat(1)` |
 
 `rclootparser watch` runs both: the chat log gives live updates, and the
@@ -42,7 +42,11 @@ timestamp), so both sources reporting the same award is harmless.
    ./rclootparser init
    ```
    Edit the generated `config.json`:
-   - `saved_variables_path` — full path to `RCLootCouncilLootDB.lua` under
+   - `saved_variables_path` — full path to `RCLootCouncil.lua` (**not**
+     `RCLootCouncilLootDB.lua` — that's not a real file; WoW writes every
+     SavedVariable an addon declares into one file named after the addon
+     folder, so `RCLootCouncilLootDB` is a second assignment inside
+     `RCLootCouncil.lua`, alongside `RCLootCouncilDB`) under
      `WTF/Account/<ACCOUNT>/SavedVariables/` in your WoW install
    - `chat_log_path` — full path to `Logs/WoWChatLog.txt` in your WoW
      install; observed behavior is that WoW appends to a single log file
@@ -86,7 +90,7 @@ named groups `player`, `item`, and `reason`. See
 main.go                       CLI entry (init / sync-once / watch)
 internal/config/              config.json loading
 internal/luatable/            minimal Lua table-literal parser (no Lua VM)
-internal/savedvars/           RCLootCouncilLootDB.lua -> []model.Award
+internal/savedvars/           RCLootCouncil.lua -> []model.Award (+ []model.Player)
 internal/chatlog/             chat log tailer + award-line regex matcher
 internal/itemlink/            decodes |Hitem:...|h[Name]|h chat links
 internal/model/               shared Award type + dedupe key
