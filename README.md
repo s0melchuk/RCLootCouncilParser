@@ -1,5 +1,8 @@
 # RCLootCouncilParser
 
+[![CI](https://github.com/s0melchuk/RCLootCouncilParser/actions/workflows/ci.yml/badge.svg)](https://github.com/s0melchuk/RCLootCouncilParser/actions/workflows/ci.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
 A native scanner that watches [RCLootCouncil](https://www.curseforge.com/wow/addons/rclootcouncil)'s
 own data and syncs loot awards to [RCLootCouncilApi](https://github.com/s0melchuk/RCLootCouncilApi)
 (`POST /api/loot`) — no manual data entry, no forced `/reload`.
@@ -92,3 +95,23 @@ No external dependencies — standard library only, so `go build` works
 offline. This is deliberately CLI-first; a tray-icon/GUI shell (e.g. via
 [Wails](https://wails.io)) can wrap this same core once it's proven out
 in daily use.
+
+## Releases
+
+Pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`) triggers
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which
+cross-compiles `rclootparser` for Windows (amd64) and macOS (amd64 + Apple
+Silicon) and attaches the binaries to a new GitHub Release — no Go
+installation needed on the receiving end.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup and PR guidelines.
+
+## Security
+
+Found a vulnerability? See [SECURITY.md](SECURITY.md) for how to report it privately.
+
+## License
+
+[GPL-3.0](LICENSE)
