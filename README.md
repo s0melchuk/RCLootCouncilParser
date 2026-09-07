@@ -98,12 +98,15 @@ in daily use.
 
 ## Releases
 
-Every merge to `main` (which, since `main` is branch-protected, means every
-change has already passed CI) automatically publishes a new GitHub Release:
+A merge to `main` (which, since `main` is branch-protected, means it's
+already passed CI) that touches actual code (`*.go`, `go.mod`, `go.sum`)
+automatically publishes a new GitHub Release:
 [`.github/workflows/release.yml`](.github/workflows/release.yml)
 auto-increments the patch version from the latest `vX.Y.Z` tag, cross-compiles
 `rclootparser` for Windows (amd64) and macOS (amd64 + Apple Silicon), and
-attaches the binaries — no Go installation needed on the receiving end.
+attaches the binaries — no Go installation needed on the receiving end. A
+merge that only touches docs/config/workflow files is skipped, so trivial
+changes don't spam the Releases page.
 
 To cut a specific version yourself instead (e.g. a deliberate major/minor
 bump), push a tag directly — it takes priority over the auto-increment:

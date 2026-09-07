@@ -1,13 +1,25 @@
 name: Release
 
 # Two ways to cut a release:
-#   1. Automatic: every push to main (i.e. every merge, since main is
-#      protected and requires CI to pass first) computes the next patch
-#      version and publishes a release for it.
+#   1. Automatic: a push to main that touches actual code (*.go, go.mod,
+#      go.sum) — i.e. most merges, since main is protected and requires CI
+#      to pass first — computes the next patch version and publishes a
+#      release for it. A push that only touches docs/config/workflow files
+#      (README, CONTRIBUTING, .github/*, etc.) is skipped, so trivial
+#      changes don't spam the Releases page.
 #   2. Manual: push a version tag yourself, e.g.
 #        git tag v1.0.0 && git push origin v1.0.0
 #      to cut a specific version out of band (e.g. a deliberate major/minor
-#      bump) — this always wins over the auto-incremented patch version.
+#      bump, or to force a release for a docs-only change). This always
+#      runs regardless of what changed, and wins over the auto-incremented
+#      patch version.
+#
+# The "did this touch code" check is done with `git diff` inside the
+# `version` job rather than a workflow-level `paths-ignore` filter: when one
+# `push` trigger combines both `branches` and `tags` (as this one does),
+# whether path filters even apply to tag pushes is genuinely unclear from
+# GitHub's docs — an explicit, debuggable check here is safer than relying
+# on that.
 #
 # Note: step 1 does NOT `git tag`+`git push` a tag itself — a tag pushed by
 # the default GITHUB_TOKEN would not trigger this workflow's own tag
@@ -31,17 +43,40 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.compute.outputs.tag }}
+      should_release: ${{ steps.compute.outputs.should_release }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Compute release tag
+      - name: Decide whether to release, and compute the tag
         id: compute
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
             echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          # A push to main: only release if the diff touches actual code.
+          before="${{ github.event.before }}"
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            # First push, force-push, or history rewrite — can't diff
+            # reliably, so err on the side of releasing rather than
+            # silently never releasing.
+            changed="unknown"
+          else
+            changed=$(git diff --name-only "$before" "${{ github.sha }}")
+          fi
+          if [ "$changed" != "unknown" ] && ! echo "$changed" | grep -qE '\.go$|(^|/)go\.(mod|sum)$'; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            echo "Skipping release: no .go/go.mod/go.sum changes in this push."
+            echo "Changed files:"
+            echo "$changed"
+            exit 0
+          fi
+
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
           latest=$(git tag --list 'v*.*.*' | sort -V | tail -n1)
           if [ -z "$latest" ]; then
             next="v0.1.0"
@@ -57,6 +92,7 @@ jobs:
 
   build:
     needs: version
+    if: needs.version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -91,6 +127,7 @@ jobs:
 
   release:
     needs: [version, build]
+    if: needs.version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
