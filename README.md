@@ -18,7 +18,7 @@ combines two sources:
 | Source | What it gives us | When it updates |
 |---|---|---|
 | **SavedVariables** (`RCLootCouncilLootDB.lua`) | Structured fields: item, boss, instance, votes, response — no text parsing | Only on a *natural* logout/reload (end of raid, zoning, etc.) |
-| **Chat log** (`WoWChatLog.txt`) | The award-announcement chat line, parsed via regex | Live, the instant the message is sent — but requires `/console chatLogging 1` |
+| **Chat log** (`WoWChatLog.txt`) | The award-announcement chat line, parsed via regex | Live, the instant the message is sent — but requires `/run LoggingChat(1)` |
 
 `rclootparser watch` runs both: the chat log gives live updates, and the
 SavedVariables pass reconciles/backfills the richer fields whenever a reload
@@ -27,9 +27,11 @@ timestamp), so both sources reporting the same award is harmless.
 
 ## Setup
 
-1. **Enable chat logging once, in-game** (only needed for the live path):
+1. **Enable chat logging in-game** (only needed for the live path). This is
+   a runtime toggle, not a saved setting — re-run it every session (a macro
+   or an addon calling this on `PLAYER_LOGIN` avoids doing it by hand):
    ```
-   /console chatLogging 1
+   /run LoggingChat(1)
    ```
 2. **Build**:
    ```bash
@@ -42,9 +44,10 @@ timestamp), so both sources reporting the same award is harmless.
    Edit the generated `config.json`:
    - `saved_variables_path` — full path to `RCLootCouncilLootDB.lua` under
      `WTF/Account/<ACCOUNT>/SavedVariables/` in your WoW install
-   - `chat_log_path` — full path to the current `WoWChatLog*.txt` under
-     `Logs/` in your WoW install (WoW may start a new file per session —
-     update this if the filename changes on your setup)
+   - `chat_log_path` — full path to `Logs/WoWChatLog.txt` in your WoW
+     install; observed behavior is that WoW appends to a single log file
+     across sessions rather than rotating (confirmed for `WoWCombatLog.txt`
+     in the same folder — chat logging is presumed to work the same way)
    - `api_base_url` — your deployed RCLootCouncilApi URL
    - `api_key` — the `INGEST_API_KEY` you set on that API (see its README)
 4. **Run**:
@@ -66,11 +69,12 @@ named groups `player`, `item`, and `reason`. See
 
 - **Timestamps are the game client's local wall-clock time**, not true
   UTC — SavedVariables and chat log don't carry a timezone.
-- **Chat log filename/rotation**: this tool tails whatever path you give
-  it; it doesn't auto-discover a new file if WoW starts one for a new
-  session. Point `chat_log_path` at the current one, or automate finding
-  the newest `WoWChatLog*.txt` yourself for now (a `--watch-dir` mode that
-  does this automatically is a natural next step).
+- **Chat log rotation is unconfirmed**: this tool tails a single fixed path
+  and assumes WoW appends to it indefinitely, based on observing
+  `WoWCombatLog.txt` behave that way in the same install — not yet verified
+  against a real `WoWChatLog.txt`, since `/run LoggingChat(1)` needs to
+  actually produce one first. If it does turn out to rotate, this tool
+  would need a `--watch-dir` mode to auto-discover the current file instead.
 - **Single machine**: designed to run on one person's WoW install (e.g. the
   loot master), not to be run by every raider — running it on multiple
   machines for the same raid would report the same awards multiple times

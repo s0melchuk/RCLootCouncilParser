@@ -12,12 +12,14 @@ type Config struct {
 	// "C:/Program Files (x86)/World of Warcraft/_classic_/WTF/Account/YOURACCOUNT/SavedVariables/RCLootCouncilLootDB.lua"
 	SavedVariablesPath string `json:"saved_variables_path"`
 
-	// ChatLogPath points at the WoW chat log file to tail. Requires
-	// `/console chatLogging 1` to have been run once in-game so the client
-	// actually writes it. WoW rotates to a new file each session
-	// (Logs/WoWChatLog-<timestamp>.txt) — point this at whichever is current,
-	// or re-run `init`/update the config after each new session if the
-	// filename changes on your setup.
+	// ChatLogPath points at the WoW chat log file to tail — typically
+	// Logs/WoWChatLog.txt, a single file appended across sessions (observed
+	// behavior: WoWCombatLog.txt in the same Logs folder isn't
+	// session-rotated either, just continuously appended — chat logging is
+	// presumed to work the same way, though not yet confirmed against a
+	// real WoWChatLog.txt). Requires running `/run LoggingChat(1)` in-game
+	// every session, since it's a runtime toggle, not a saved setting.
+	// Update this path if your setup ever does use a different filename.
 	ChatLogPath string `json:"chat_log_path"`
 
 	// AwardAnnouncePattern overrides chatlog.DefaultAwardPattern if your
