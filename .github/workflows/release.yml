@@ -45,7 +45,7 @@ jobs:
       tag: ${{ steps.compute.outputs.tag }}
       should_release: ${{ steps.compute.outputs.should_release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Decide whether to release, and compute the tag
